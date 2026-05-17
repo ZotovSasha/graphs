@@ -250,7 +250,7 @@ class Ui_MainWindow(QMainWindow):
             if self.dialog.exec():
                 weight, type = self.dialog.getInputs()
                 try:
-                    if weight.strip() == "": return ["1", type]
+                    if weight.strip() == "": return [1, type]
                     weight = int(weight)
                     if weight < 0:
                         self.warningPopup(" ",
@@ -360,7 +360,7 @@ class Ui_MainWindow(QMainWindow):
                 text_x = int(x2) - (x2 - x1) // 4
                 text_y = int(y2) - (y2 - y1) // 4
 
-        if weight != -1 and weight != "1":
+        if weight != -1 and str(weight) != "1":
             font = QFont("Rubik", 12)
             fm = QFontMetrics(font)
             w = max(30, int(fm.horizontalAdvance(str(weight)) if hasattr(fm, 'horizontalAdvance') else fm.width(
@@ -388,6 +388,7 @@ class Ui_MainWindow(QMainWindow):
             self.parse_incidence_matrix()
 
     def end_edge(self, start_vertex, end_vertex, weight, type):
+        weight = self.edge_weight_value(weight)
         i = 0
         while i < len(self.edges):
             edge = self.edges[i]
@@ -403,6 +404,16 @@ class Ui_MainWindow(QMainWindow):
         self.edges.append(Edge(start_vertex, end_vertex, weight, type))
         self.update()
 
+    def edge_weight_value(self, weight):
+        try:
+            return int(weight)
+        except (TypeError, ValueError):
+            return 1
+
+    def graph_edges(self):
+        v_count = len(self.vertices)
+        return [e for e in self.edges if 0 <= e.start_index < v_count and 0 <= e.end_index < v_count]
+
     def clear_graph(self):
         self.vertices, self.edges = [], []
         self.start_vertex, self.dragged_vertex_index = -1, -1
@@ -416,9 +427,10 @@ class Ui_MainWindow(QMainWindow):
             return
         n = len(self.vertices)
         mat = [[0] * n for _ in range(n)]
-        for e in self.edges:
-            mat[e.start_index][e.end_index] = e.weight
-            if e.type == 1: mat[e.end_index][e.start_index] = e.weight
+        for e in self.graph_edges():
+            weight = self.edge_weight_value(e.weight)
+            mat[e.start_index][e.end_index] = weight
+            if e.type == 1: mat[e.end_index][e.start_index] = weight
 
         max_len = max(len(str(x)) for row in mat for x in row)
         out = "\n".join("  ".join(f"{v:>{max_len}}" for v in r) for r in mat)
@@ -436,20 +448,22 @@ class Ui_MainWindow(QMainWindow):
         self.tableWidget.setUpdatesEnabled(True)
 
     def display_incidence_matrix(self):
-        if not self.vertices or not self.edges:
+        edges = self.graph_edges()
+        if not self.vertices or not edges:
             self.TextOutput.setText("Пустой граф")
             self.tableWidget.setRowCount(0)
             self.tableWidget.setColumnCount(0)
             return
-        n, m = len(self.vertices), len(self.edges)
+        n, m = len(self.vertices), len(edges)
         mat = [[0] * m for _ in range(n)]
-        for j, e in enumerate(self.edges):
+        for j, e in enumerate(edges):
+            weight = self.edge_weight_value(e.weight)
             if e.type == 0:
-                mat[e.start_index][j] = e.weight
-                mat[e.end_index][j] = -e.weight
+                mat[e.start_index][j] = weight
+                mat[e.end_index][j] = -weight
             else:
-                mat[e.start_index][j] = e.weight
-                mat[e.end_index][j] = e.weight
+                mat[e.start_index][j] = weight
+                mat[e.end_index][j] = weight
 
         max_len = max(len(str(x)) for row in mat for x in row)
         out = "\n".join("  ".join(f"{v:>{max_len}}" for v in r) for r in mat)
@@ -458,7 +472,7 @@ class Ui_MainWindow(QMainWindow):
         self.tableWidget.setUpdatesEnabled(False)
         self.tableWidget.setRowCount(n)
         self.tableWidget.setColumnCount(m)
-        self.tableWidget.setHorizontalHeaderLabels([f"{e.start_index + 1}-{e.end_index + 1}" for e in self.edges])
+        self.tableWidget.setHorizontalHeaderLabels([f"{e.start_index + 1}-{e.end_index + 1}" for e in edges])
         font = QFont("Rubik", 12)
         for i in range(n):
             for j in range(m):
