@@ -424,7 +424,7 @@ class Ui_MainWindow(QMainWindow):
                 matrix = parse_incidence_text(self.TextOutput.toPlainText())
                 edges = edges_from_incidence_matrix(matrix)
         except MatrixParseError as error:
-            self.show_matrix_error(error.code)
+            self.show_matrix_error(error)
             return
 
         self.graph.replace(self.create_vertices(len(matrix)), edges)
@@ -478,14 +478,32 @@ class Ui_MainWindow(QMainWindow):
         self.TextOutput.setText("Пустой граф")
         self.clear_matrix_table()
 
-    def show_matrix_error(self, code):
-        if code == "square":
-            text = "<h3>&nbsp;Ошибка!</h3>\n&nbsp;&nbsp;Матрица должна быть квадратной.<br><br>"
-        elif code == "size":
-            text = "<h3>&nbsp;Ошибка!</h3>\n&nbsp;&nbsp;Матрица должна быть требуемых размеров.<br><br>"
-        else:
-            text = "<h3>&nbsp;Ошибка!</h3>\n&nbsp;&nbsp;Формат матрицы неверен.<br><br>"
+    def show_matrix_error(self, error):
+        message = self.matrix_error_message(error)
+        text = f"<h3>&nbsp;Ошибка!</h3>\n&nbsp;&nbsp;{message}<br><br>"
         self.warningPopup(" ", text)
+
+    def matrix_error_message(self, error):
+        code = error.code if isinstance(error, MatrixParseError) else error
+        if code == "empty":
+            return "Введите матрицу."
+        if code == "empty_row":
+            return f"Строка {error.row} не содержит значений."
+        if code == "not_integer":
+            return f"Строка {error.row}, столбец {error.column}: значение '{error.value}' не является целым числом."
+        if code == "row_length":
+            return f"Строка {error.row}: найдено {error.actual} значений, ожидалось {error.expected}."
+        if code == "square":
+            if error.row is not None:
+                return f"Матрица смежности должна быть квадратной: в строке {error.row} найдено {error.actual} значений, ожидалось {error.expected}."
+            return f"Матрица смежности должна быть квадратной: строк {error.expected}, столбцов {error.actual}."
+        if code == "negative_weight":
+            return f"Строка {error.row}, столбец {error.column}: вес не может быть отрицательным."
+        if code == "incidence_column_size":
+            return f"Столбец {error.column}: у связи должно быть не больше двух ненулевых значений, найдено {error.actual}."
+        if code == "incidence_weight_mismatch":
+            return f"Столбец {error.column}: веса должны совпадать по модулю ({error.value})."
+        return "Формат матрицы неверен."
 
     def create_vertices(self, vertices_count):
         if vertices_count <= 0:
